@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="theme-color" content="#1f6feb">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Scan2Sheets Web</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="container">
+    <h1>Scan2Sheets Web</h1>
+    <p class="muted">التقاط/رفع صورة → تحديد منطقة → OCR/Barcode → إرسال إلى Google Sheets</p>
+  </header>
+
+  <main class="container grid">
+    <!-- إعدادات -->
+    <section class="card">
+      <h2>الإعدادات</h2>
+
+      <label class="field">
+        <span>رابط Google Apps Script Web App</span>
+        <input id="scriptUrl" type="url" placeholder="https://script.google.com/macros/s/.../exec" />
+      </label>
+
+      <label class="field">
+        <span>Secret Token</span>
+        <input id="secretToken" type="password" placeholder="SECRET_TOKEN" />
+      </label>
+
+      <div class="row">
+        <label class="field">
+          <span>وضع القراءة</span>
+          <select id="mode">
+            <option value="auto" selected>تلقائي (Barcode ثم OCR)</option>
+            <option value="barcode">باركود/QR فقط</option>
+            <option value="text">كتابة/نص فقط</option>
+          </select>
+        </label>
+
+        <label class="field">
+          <span>لغة OCR</span>
+          <select id="ocrLang">
+            <option value="eng" selected>English (eng)</option>
+            <option value="ara">العربية (ara)</option>
+            <option value="eng+ara">eng + ara</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="row">
+        <button id="saveSettings" class="btn">حفظ الإعدادات</button>
+        <button id="clearSettings" class="btn ghost">مسح الإعدادات</button>
+      </div>
+
+      <p class="muted small">
+        تأكد أن رابط السكربت ينتهي بـ <b>/exec</b> وأن النشر يسمح بالوصول (Anyone).
+      </p>
+    </section>
+
+    <!-- إدخال الصورة -->
+    <section class="card">
+      <h2>إدخال الصورة</h2>
+
+      <div class="row wrap">
+        <button id="startCamera" class="btn">فتح الكاميرا</button>
+        <button id="capture" class="btn" disabled>التقاط</button>
+
+        <label class="btn ghost fileBtn">
+          رفع صورة
+          <input id="fileInput" type="file" accept="image/*" hidden />
+        </label>
+
+        <button id="stopCamera" class="btn ghost" disabled>إيقاف الكاميرا</button>
+      </div>
+
+      <div class="media">
+        <video id="video" playsinline muted></video>
+        <canvas id="canvas" hidden></canvas>
+
+        <!-- عرض المعاينة بالصورة أو عبر roiCanvas -->
+        <img id="preview" alt="معاينة الصورة" />
+        <canvas id="roiCanvas"></canvas>
+      </div>
+
+      <div class="row wrap">
+        <button id="enableRoi" class="btn">تحديد منطقة النص</button>
+        <button id="clearRoi" class="btn ghost" disabled>إلغاء التحديد</button>
+      </div>
+
+      <div class="row">
+        <label class="field grow">
+          <span>تحسين الصورة (مهم للكتابة اليدوية)</span>
+          <select id="enhance">
+            <option value="none" selected>بدون</option>
+            <option value="grayscale">رمادي</option>
+            <option value="contrast">تباين أعلى</option>
+            <option value="threshold">أبيض/أسود (Threshold ثابت)</option>
+            <option value="adaptive">Threshold ذكي (أفضل غالبًا)</option>
+          </select>
+        </label>
+
+        <label class="field">
+          <span>قص عام</span>
+          <select id="crop">
+            <option value="none" selected>بدون قص</option>
+            <option value="center">قص من الوسط</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="row">
+        <button id="analyze" class="btn primary" disabled>التعرّف على المحتوى</button>
+        <button id="reset" class="btn ghost" disabled>إعادة ضبط</button>
+      </div>
+
+      <div id="status" class="status muted">جاهز.</div>
+      <div class="progress">
+        <div id="progressBar" class="progressBar"></div>
+      </div>
+
+      <p class="muted small">
+        نصيحة: لتحسين OCR استخدم “تحديد منطقة النص” ثم اختر “Threshold ذكي”.
+      </p>
+    </section>
+
+    <!-- النتائج والإرسال -->
+    <section class="card">
+      <h2>النتيجة</h2>
+
+      <div class="row">
+        <label class="field">
+          <span>نوع المصدر</span>
+          <select id="sourceType">
+            <option value="HANDWRITING" selected>HANDWRITING</option>
+            <option value="BARCODE">BARCODE</option>
+          </select>
+        </label>
+
+        <button id="copyResult" class="btn ghost" disabled>نسخ النتيجة</button>
+      </div>
+
+      <label class="field">
+        <span>القيمة المقروءة (يمكن تعديلها)</span>
+        <textarea id="value" rows="6" placeholder="ستظهر النتيجة هنا..."></textarea>
+      </label>
+
+      <label class="field">
+        <span>ملاحظات (اختياري)</span>
+        <input id="notes" type="text" placeholder="مثال: اسم العميل / رقم الطلب..." />
+      </label>
+
+      <div class="row">
+        <button id="send" class="btn primary" disabled>إرسال إلى Google Sheets</button>
+        <button id="savePending" class="btn ghost" disabled>حفظ كـ Pending</button>
+      </div>
+
+      <div id="sendMsg" class="status muted"></div>
+    </section>
+
+    <!-- السجل -->
+    <section class="card full">
+      <div class="row spaceBetween">
+        <h2>السجل (History)</h2>
+        <div class="row">
+          <button id="retryAll" class="btn">إعادة إرسال Pending</button>
+          <button id="clearHistory" class="btn ghost">مسح السجل</button>
+        </div>
+      </div>
+
+      <div id="history" class="history"></div>
+    </section>
+  </main>
+
+  <!-- Libraries via CDN -->
+  <script src="https://unpkg.com/tesseract.js@5/dist/tesseract.min.js"></script>
+  <script src="https://unpkg.com/@zxing/library@0.21.3/umd/index.min.js"></script>
+
+  <script src="app.js"></script>
+</body>
+</html>
